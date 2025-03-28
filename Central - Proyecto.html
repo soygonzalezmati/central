@@ -1,0 +1,497 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    Newspaper,  // Para el logo/icono principal
+    Zap,        // Para Noticias de última hora
+    ChevronRight, // Para navegación de categoría
+    Link,       // Para enlaces externos
+    Rss,        // Para icono de RSS
+    Loader2,
+    PlusCircle, // Para el botón "Mostrar más"
+    Cpu,        // Tecnología
+    PiggyBank,  // Economía
+    Telescope,  // Ciencia
+    Flag,       // Política
+    Football,   // Deportes
+    Palette,    // Cultura
+    Leaf,       // Medio Ambiente
+    Film,       // Cine
+    AlertTriangle, //Noticias
+    Calendar,     // Para el botón de "Salta al"
+    ChevronDown,  // Para el menú desplegable
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandGroup, CommandItem } from "@/components/ui/command"
+
+// Mock data for demonstration.  In a real app, this would come from an API.
+interface NewsItem {
+    id: string;
+    title: string;
+    description: string;
+    link: string;
+    category: string;
+    pubDate: string; // ISO 8601 date string
+    source: {
+        name: string;
+        url: string;
+    };
+    seoScore?: number; // Optional SEO score for "Ahora" section
+}
+
+const initialNews: NewsItem[] = [
+    {
+        id: '1',
+        title: 'Nuevo Smartphone Revelado',
+        description: 'La compañía X anuncia su último dispositivo con características revolucionarias.',
+        link: 'https://example.com/nuevo-smartphone',
+        category: 'Tecnología',
+        pubDate: new Date(Date.now() - 3600000).toISOString(), // 1 hora atrás
+        source: { name: 'TechNews Chile', url: 'https://technewschile.cl' },
+        seoScore: 95,
+    },
+    {
+        id: '2',
+        title: 'Inflación Alcanza Nuevo Máximo',
+        description: 'El índice de precios al consumidor subió un X% en el último mes.',
+        link: 'https://example.com/inflacion-maximo',
+        category: 'Economía',
+        pubDate: new Date(Date.now() - 7200000).toISOString(), // 2 horas atrás
+        source: { name: 'Economía Hoy', url: 'https://economiahoy.cl' },
+        seoScore: 88,
+    },
+    {
+        id: '3',
+        title: 'Descubren Nueva Especie Marina',
+        description: 'Científicos chilenos descubren una nueva especie en la costa del país.',
+        link: 'https://example.com/nueva-especie',
+        category: 'Ciencia',
+        pubDate: new Date(Date.now() - 1800000).toISOString(), // 30 minutos atrás
+        source: { name: 'Ciencia al Día', url: 'https://cienciaaldia.cl' },
+        seoScore: 92,
+    },
+    {
+        id: '4',
+        title: 'Presidente Anuncia Reformas',
+        description: 'El presidente de Chile anuncia un paquete de reformas económicas y sociales.',
+        link: 'https://example.com/reformas-presidente',
+        category: 'Política',
+        pubDate: new Date(Date.now() - 86400000).toISOString(), // 1 día atrás
+        source: { name: 'El Mercurio', url: 'https://www.emol.com' },
+    },
+    {
+        id: '5',
+        title: 'Colo-Colo Gana Clásico',
+        description: 'Colo-Colo derrota a Universidad de Chile en el clásico del fútbol chileno.',
+        link: 'https://example.com/colo-colo-gana',
+        category: 'Deportes',
+        pubDate: new Date(Date.now() - 21600000).toISOString(), // 6 horas atrás
+        source: { name: 'Dale Albo', url: 'https://dalealbo.cl' },
+    },
+    {
+        id: '6',
+        title: 'Nuevo Festival de Música',
+        description: 'Se anuncia un nuevo festival de música con artistas nacionales e internacionales.',
+        link: 'https://example.com/festival-musica',
+        category: 'Cultura',
+        pubDate: new Date(Date.now() - 43200000).toISOString(), // 12 horas atrás
+        source: { name: 'La Tercera', url: 'https://www.latercera.com' },
+    },
+    {
+        id: '7',
+        title: 'Avance en Energías Renovables',
+        description: 'Chile lidera la región en la adopción de energías renovables.',
+        link: 'https://example.com/energias-renovables',
+        category: 'Medio Ambiente',
+        pubDate: new Date(Date.now() - 7200000).toISOString(), // 2 horas atrás
+        source: { name: 'Sustentable.cl', url: 'https://sustentable.cl' },
+        seoScore: 78,
+    },
+    {
+        id: '8',
+        title: 'Estreno de Nueva Película Chilena',
+        description: 'Se estrena una nueva película chilena aclamada por la crítica.',
+        link: 'https://example.com/pelicula-chilena',
+        category: 'Cine',
+        pubDate: new Date(Date.now() - 10800000).toISOString(), // 3 horas atrás
+        source: { name: 'CineChile', url: 'https://cinechile.cl' },
+    },
+    {
+        id: '9',
+        title: 'Tendencias en Diseño Web',
+        description: 'Las últimas tendencias en diseño web para el 2024.',
+        link: 'https://example.com/diseno-web-2024',
+        category: 'Tecnología',
+        pubDate: new Date(Date.now() - 259200000).toISOString(), // 3 días atrás
+        source: { name: 'Diseño Web CL', url: 'https://diseñoweb.cl' },
+    },
+    {
+        id: '10',
+        title: 'Científicos Chilenos Descubren Nueva Galaxia',
+        description: 'Un equipo de astrónomos chilenos ha descubierto una nueva galaxia.',
+        link: 'https://example.com/new-galaxy-discovery',
+        category: 'Ciencia',
+        pubDate: new Date(Date.now() - 3600000).toISOString(), // 1 hora atrás
+        source: { name: 'Astronomy Chile', url: 'https://astro.cl' },
+        seoScore: 97,
+    },
+    {
+        id: '11',
+        title: 'Nuevas Medidas Económicas Anunciadas',
+        description: 'El gobierno ha anunciado nuevas medidas para impulsar la economía.',
+        link: 'https://example.com/economic-measures',
+        category: 'Economía',
+        pubDate: new Date(Date.now() - 7200000).toISOString(), // 2 horas atrás
+        source: { name: 'Financial News', url: 'https://finnews.cl' },
+        seoScore: 90,
+    },
+    {
+        id: '12',
+        title: 'Terremoto Mayor Sacude el Norte de Chile',
+        description: 'Un gran terremoto ha sacudido el norte de Chile, causando preocupación.',
+        link: 'https://example.com/earthquake-north',
+        category: 'Noticias',
+        pubDate: new Date(Date.now() - 1800000).toISOString(), // 30 minutos atrás
+        source: { name: 'Emergency Info', url: 'https://onemi.cl' },
+        seoScore: 99,
+    },
+    {
+        id: '13',
+        title: 'Gobierno Invierte en Energía Verde',
+        description: 'El gobierno chileno está invirtiendo fuertemente en energía verde.',
+        link: 'https://example.com/green-energy-investment',
+        category: 'Medio Ambiente',
+        pubDate: new Date(Date.now() - 86400000).toISOString(), // 1 día atrás
+        source: { name: 'Energy Today', url: 'https://energytoday.cl' },
+    },
+    {
+        id: '14',
+        title: 'Nueva Exhibición de Arte Abre en Santiago',
+        description: 'Una nueva exhibición de arte con artistas chilenos ha abierto en Santiago.',
+        link: 'https://example.com/art-exhibit-santiago',
+        category: 'Cultura',
+        pubDate: new Date(Date.now() - 21600000).toISOString(), // 6 horas atrás
+        source: { name: 'Art Scene Chile', url: 'https://artscene.cl' },
+    },
+    {
+        id: '15',
+        title: 'Universidad de Chile Gana Campeonato Nacional',
+        description: 'Universidad de Chile gana el campeonato nacional universitario.',
+        link: 'https://example.com/university-champions',
+        category: 'Deportes',
+        pubDate: new Date(Date.now() - 43200000).toISOString(), // 12 horas atrás
+        source: { name: 'Sports Now', url: 'https://sportsnow.cl' },
+    },
+];
+
+// Mock function to simulate fetching news from an RSS feed.
+// In a real application, you would use a library like 'rss-parser'
+// and fetch data from an actual RSS feed URL.
+const fetchRssFeed = async (url: string): Promise<NewsItem[]> => {
+    // Simulate network delay and data processing
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // In a real implementation, you'd parse the RSS feed here.
+    // This is just a placeholder for demonstration.
+    if (url === 'https://example.com/blog-newsletter-feed') {
+        return [
+            {
+                id: 'newsletter-1',
+                title: 'Semana de la Tecnología',
+                description: 'Resumen de los eventos tecnológicos más importantes de la semana.',
+                link: 'https://example.com/blog-newsletter-1',
+                category: 'Tecnología',
+                pubDate: new Date().toISOString(),
+                source: { name: 'Blog Tecnológico', url: 'https://example.com/blog' },
+            },
+            {
+                id: 'newsletter-2',
+                title: 'Actualización del Mercado Financiero',
+                description: 'Análisis del comportamiento del mercado financiero y las últimas tendencias.',
+                link: 'https://example.com/blog-newsletter-2',
+                category: 'Economía',
+                pubDate: new Date().toISOString(),
+                source: { name: 'Blog Financiero', url: 'https://example.com/blog' },
+            },
+        ];
+    }
+
+    return []; // Return empty array if the URL is not recognized
+};
+
+// Animation variants
+const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeInOut' } },
+    exit: { opacity: 0, y: -20, transition: { duration: 0.2 } },
+};
+
+const CentralNews = () => {
+    const [news, setNews] = useState<NewsItem[]>(initialNews);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+    // State for "Ahora" (Breaking News)
+    const [ahoraNews, setAhoraNews] = useState<NewsItem[]>([]);
+
+    // State for "Newspapers"
+    const [newspapers, setNewspapers] = useState<NewsItem[]>([]);
+
+    // Function to add a new RSS feed (simulated)
+    const addRssFeed = useCallback(async (url: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const fetchedNews = await fetchRssFeed(url);
+            setNews(prevNews => [...prevNews, ...fetchedNews]);
+            // Update "Ahora" news after adding
+            updateAhoraNews([...news, ...fetchedNews]);
+            setNewspapers(prev => [...prev, ...fetchedNews]);
+        } catch (err: any) {
+            setError(err.message || 'Failed to fetch RSS feed');
+        } finally {
+            setLoading(false);
+        }
+    }, [news]);
+
+    // Function to update "Ahora" news
+    const updateAhoraNews = useCallback((allNews: NewsItem[]) => {
+        const now = new Date();
+        const oneHourAgo = new Date(now.getTime() - 3600000); // 1 hora en milisegundos
+
+        const breakingNews = allNews
+            .filter(item => new Date(item.pubDate) >= oneHourAgo)
+            .sort((a, b) => (b.seoScore || 0) - (a.seoScore || 0)) // Ordenar por puntaje SEO, descendente
+            .slice(0, 5); // Limitar a los 5 principales
+
+        setAhoraNews(breakingNews);
+    }, []);
+
+    // Initial load and "Ahora" update
+    useEffect(() => {
+        // Add mock RSS feed on initial load (for demonstration)
+        addRssFeed('https://example.com/blog-newsletter-feed');
+        updateAhoraNews(news);
+        const intervalId = setInterval(() => {
+            updateAhoraNews(news);
+        }, 300000); // Update every 5 minutos
+
+        return () => clearInterval(intervalId);
+    }, [addRssFeed, news, updateAhoraNews]);
+
+    // Group news by category and manage display limit
+    const [categoryDisplayLimits, setCategoryDisplayLimits] = useState<{ [category: string]: number }>({});
+    const categorizedNews = news.reduce<{ [category: string]: NewsItem[] }>((acc, item) => {
+        if (!acc[item.category]) {
+            acc[item.category] = [];
+        }
+        acc[item.category].push(item);
+        return acc;
+    }, {});
+
+    // State for category news of the week
+    const [categoryNewsOfWeek, setCategoryNewsOfWeek] = useState<{ [category: string]: NewsItem[] }>({});
+
+    // Get unique categories
+    const categories = Object.keys(categorizedNews);
+
+    // Initialize display limits and news of the week
+    useEffect(() => {
+        const initialLimits: { [category: string]: number } = {};
+        const initialNewsOfWeek: { [category: string]: NewsItem[] } = {};
+        categories.forEach(category => {
+            initialLimits[category] = 5; // Initial limit of 5
+            // Calculate news of the week (last 7 days)
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            initialNewsOfWeek[category] = categorizedNews[category].filter(item =>
+                new Date(item.pubDate) >= weekAgo
+            );
+
+            // Sort news for each category for "Lo Importante"
+            initialNewsOfWeek[category] = initialNewsOfWeek[category].sort((a, b) => (b.seoScore || 0) - (a.seoScore || 0));
+        });
+        setCategoryDisplayLimits(initialLimits);
+        setCategoryNewsOfWeek(initialNewsOfWeek);
+    }, [categories, categorizedNews]);
+
+    // Function to show more items for a category
+    const showMoreItems = (category: string) => {
+        setCategoryDisplayLimits(prevLimits => ({
+            ...prevLimits,
+            [category]: Math.min(prevLimits[category] + 5, 15), // Show 5 more, up to 15
+        }));
+    };
+
+    // Function to get gradient based on category
+    const getCategoryGradient = (category: string) => {
+        switch (category) {
+            case 'Tecnología': return 'bg-gradient-to-r from-purple-500 to-blue-500';
+            case 'Economía': return 'bg-gradient-to-r from-green-500 to-yellow-500';
+            case 'Ciencia': return 'bg-gradient-to-r from-blue-600 to-indigo-600';
+            case 'Política': return 'bg-gradient-to-r from-red-500 to-orange-500';
+            case 'Deportes': return 'bg-gradient-to-r from-pink-500 to-rose-500';
+            case 'Cultura': return 'bg-gradient-to-r from-teal-500 to-cyan-500';
+            case 'Medio Ambiente': return 'bg-gradient-to-r from-emerald-500 to-lime-500';
+            case 'Cine': return 'bg-gradient-to-r from-orange-600 to-amber-600';
+            case 'Noticias': return 'bg-gradient-to-r from-red-600 to-rose-600';
+            default: return 'bg-gradient-to-r from-gray-500 to-gray-600';
+        }
+    };
+
+    // Function to get category emoji
+    const getCategoryEmoji = (category: string) => {
+        switch (category) {
+            case 'Tecnología': return <Cpu className="w-5 h-5" />;
+            case 'Economía': return <PiggyBank className="w-5 h-5" />;
+            case 'Ciencia': return <Telescope className="w-5 h-5" />;
+            case 'Política': return <Flag className="w-5 h-5" />;
+            case 'Deportes': return <Football className="w-5 h-5" />;
+            case 'Cultura': return <Palette className="w-5 h-5" />;
+            case 'Medio Ambiente': return <Leaf className="w-5 h-5" />;
+            case 'Cine': return <Film className="w-5 h-5" />;
+            case 'Noticias': return <AlertTriangle className="w-5 h-5" />;
+            default: return null;
+        }
+    };
+
+    // Function to filter news by day
+    const getNewsByDay = (day: string) => {
+        const dayOfWeek = new Date(day).getDay(); // 0 (Domingo) a 6 (Sábado)
+
+        return news.filter(item => {
+            const itemDate = new Date(item.pubDate);
+            return itemDate.getDay() === dayOfWeek;
+        });
+    };
+
+    // Days of the week for the "Salta al" menu
+    const daysOfWeek = [
+        "Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"
+    ];
+
+    // Function to handle day selection
+    const handleDaySelect = (day: string) => {
+        setSelectedDay(day);
+    };
+
+    // Apply day filter if a day is selected
+    const filteredNews = selectedDay ? getNewsByDay(selectedDay) : news;
+
+    // Re-calculate categorized news based on the filtered news
+    const filteredCategorizedNews = filteredNews.reduce<{ [category: string]: NewsItem[] }>((acc, item) => {
+        if (!acc[item.category]) {
+            acc[item.category] = [];
+        }
+        acc[item.category].push(item);
+        return acc;
+    }, {});
+
+    // Update category news of week based on filtered news
+    const filteredCategoryNewsOfWeek: { [category: string]: NewsItem[] } = {};
+    categories.forEach(category => {
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        filteredCategoryNewsOfWeek[category] = filteredCategorizedNews[category]?.filter(item =>
+            new Date(item.pubDate) >= weekAgo
+        ) || [];
+
+        // Sort for "Lo Importante"
+        filteredCategoryNewsOfWeek[category] = filteredCategoryNewsOfWeek[category].sort((a, b) => (b.seoScore || 0) - (a.seoScore || 0));
+    });
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-yellow-100 to-orange-400 p-4 md:p-8">
+            <div className="max-w-6xl mx-auto space-y-8">
+                {/* Header Section */}
+                <header className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        {/* Image  */}
+                        <img src="32760aa2-e6f9-4f70-9e4c-39877117770c.jpg" alt="Central Logo" className="w-auto h-8" />
+                       
+                    </div>
+                    <p className="text-gray-700 text-sm sm:text-base">Tu mundo, en un vistazo</p>
+                </header>
+
+                {/* "Ahora" (Breaking News) Section */}
+                {ahoraNews.length > 0 && (
+                    <section className="bg-red-600 text-white p-2 md:p-3 rounded-md shadow-lg flex items-center gap-2 md:gap-4">
+                        <Zap className="w-5 h-5 md:w-6 md:h-6 animate-pulse" />
+                        <span className="font-bold text-sm md:text-base">Ahora:</span>
+                        <div className="overflow-x-hidden whitespace-nowrap">
+                            <AnimatePresence>
+                                {ahoraNews.map((item, index) => (
+                                    <motion.span
+                                        key={item.id}
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -20 }}
+                                        transition={{ duration: 0.5, delay: index * 0.2 }}
+                                        className="inline-block mx-2 md:mx-4 text-xs md:text-sm"
+                                    >
+                                        <a
+                                            href={item.link}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="hover:underline"
+                                        >
+                                            {item.title}
+                                        </a>
+                                        {index < ahoraNews.length - 1 && <span className="text-gray-200">|</span>}
+                                    </motion.span>
+                                ))}
+                            </AnimatePresence>
+                        </div>
+                    </section>
+                )}
+
+                {/* Main Content Area */}
+                <main className="space-y-6">
+                    {/* "Salta al" Button */}
+                    <div className="flex justify-start mb-4">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="bg-white/80 backdrop-blur-md text-gray-800 border border-gray-300
+                                               hover:bg-white/90 hover:text-gray-900 flex items-center gap-2"
+                                >
+                                    <Calendar className="w-4 h-4" />
+                                    Salta al
+                                    <ChevronDown className="w-4 h-4 ml-1" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 bg-white border border-gray-300 text-gray-800">
+                                <Command>
+                                    <CommandGroup>
+                                        {daysOfWeek.map((day, index) => (
+                                            <CommandItem
+                                                key={index}
+                                                value={day}
+                                                 onSelect={() => handleDaySelect(new Date(Date.now() - (Date.now() % (24 * 60 * 60 * 1000)) - (index * 24 * 60 * 60 * 1000)).toISOString())} // Pass ISO string
+                                            >
+                                                {day}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+
+                    {/* Display news by category */}
+                    {categories.map(category => {
+                        const displayLimit = categoryDisplayLimits[category] || 5;
+                        const categoryEmoji = getCategoryEmoji(category);
+                         const newsOfWeek = filteredCategoryNewsOfWeek[category] || [];
+                        const importantNews = newsOfWeek.slice(0, 3);
+
+                        return (
+                            <section key={category}>
+                                <h2 className="text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                    {categoryEmoji && categoryEmoji}
+                                    {category}
+                                    <ChevronRight className="w-5 h-5" />
+                                </h2>
+                                <div className="grid grid-co
